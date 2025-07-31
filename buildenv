@@ -16,7 +16,7 @@ export ZOPEN_BUILD_LINE="STABLE"
 
 ## Required IF ZOPEN_BUILD_LINE='STABLE'
 export ZOPEN_STABLE_URL="https://github.com/libcheck/check.git"  # Specify the stable build URL (either git or tarball)
-export ZOPEN_STABLE_DEPS="automake autoconf libtool m4 pkgconfig sed cmake make zoslib grep gawk diffutils perl" # Specify the stable build dependencies.
+export ZOPEN_STABLE_DEPS="coreutils tar automake autoconf gettext bash libtool m4 pkgconfig sed cmake make zoslib grep gawk diffutils perl" # Specify the stable build dependencies.
 
 ## Required IF ZOPEN_BUILD_LINE='DEV'
 export ZOPEN_DEV_URL=""   # Specify the dev build URL
@@ -39,8 +39,8 @@ export ZOPEN_SYSTEM_PREREQ=""
 ###
 
 export ZOPEN_BOOTSTRAP="autoreconf" ## Bootstrap program to run (defaults to './bootstrap')
-#export ZOPEN_CHECK="zopen_check"     ## Check program to run (defaults to 'make')
-#export ZOPEN_CONFIGURE="cmake" ## Configuration program to run (defaults to './configure')
+#export ZOPEN_CHECK=make"     ## Check program to run (defaults to 'make')
+#export ZOPEN_CONFIGURE="./configure" ## Configuration program to run (defaults to './configure')
 #export ZOPEN_INSTALL="make"   ## Installation program to run (defaults to 'make')
 #export ZOPEN_MAKE="make"      ## Build program to run (defaults to 'make')
 #export ZOPEN_CLEAN=""         ## Clean up program to run (defaults to 'make')
@@ -52,23 +52,32 @@ export ZOPEN_BOOTSTRAP="autoreconf" ## Bootstrap program to run (defaults to './
 
 zopen_check_results()
 {
-  dir="$1"
-  pfx="$2"
-  chk="$1/$2_check.log"
+chk="tests/test-suite.log"
+totalTests=$(grep "^# TOTAL: " ${chk} | head -1 | awk '{ print $3 }')
+actualFailures=$(grep "^# FAIL: " ${chk} | head -1 | awk '{ print $3 }')
+actualPass=$(grep "^# PASS: " ${chk} | head -1 | awk '{ print $3 }')
+actualErrors=$(grep "^# ERROR: " ${chk} | head -1 | awk '{ print $3 }')
+actualSkip=$(grep "^# SKIP: " ${chk} | head -1 | awk '{ print $3 }')
+expectedFailures=2
+expectedErrors=0
+expectedPass=7
+expectedSkip=0
+totalExpectedFailures=$(($expectedFailures+$expectedErrors))
+totalActualFailures=$(($actualFailures+$actualErrors))
+totalRunTests=$(($totalTests-$actualSkip))
 
-  totalTests=$(grep '# TOTAL:' $chk | awk '{ print $3 }')
-  actualFailures=$(grep '# FAIL:' $chk | awk '{ print $3 }')
-  expectedFailures=10
-  echo "actualFailures:${actualFailures}"
-  echo "totalTests:${totalTests}"
-  echo "expectedFailures:${expectedFailures}"
+cat <<ZZ
+actualFailures:$totalActualFailures
+totalTests:$totalRunTests
+expectedFailures:$totalExpectedFailures
+ZZ
 }
 
 zopen_get_version()
 {
   # Modify to echo the version of your tool/library
   # Rather than hardcoding the version, obtain the version by running the tool/library
-  echo "1.0.0"
+  echo $CHECK_VERSION
 }
 
 
@@ -76,10 +85,17 @@ zopen_get_version()
 ### Optional user-supplied functions for zopen-build
 ###
 
-#zopen_append_to_env() {
-  ## This function runs as part of generation of the .env file. The output of the
-  ## function is appended to .env.
-#}
+zopen_append_to_env()
+{
+cat <<ZZ
+if [ ! -z "\$ZOPEN_IN_ZOPEN_BUILD" ]; then
+  export ZOPEN_EXTRA_CFLAGS="\${ZOPEN_EXTRA_CFLAGS} -I\$PWD/include"
+  export ZOPEN_EXTRA_CXXFLAGS="\${ZOPEN_EXTRA_CXXFLAGS} -I\$PWD/include"
+  export ZOPEN_EXTRA_LDFLAGS="\${ZOPEN_EXTRA_LDFLAGS} -L\$PWD/lib"
+  export ZOPEN_EXTRA_LIBS="\${ZOPEN_EXTRA_LIBS} -lcheck"
+fi
+ZZ
+}
 
 #zopen_append_to_setup(){
   ## This function runs as part of generation of the setup.sh file. The output of
@@ -99,11 +115,6 @@ zopen_get_version()
 #zopen_append_to_zoslib_env(){
   ## This function runs as part of generation of the C function zoslib_env_hook,
   ## which can be used to set environment variables before main is run.
-#}
-
-#zopen_init(){
-  ## This function runs after code is downloaded and patched but before the code
-  ## is built.
 #}
 
 #zopen_post_buildenv(){
@@ -154,8 +165,8 @@ export ZOPEN_BOOTSTRAP_OPTS="--install" ## Options to pass to bootstrap program 
 #export ZOPEN_CHECK_TIMEOUT="" ## Timeout limit in seconds for the check program (defaults to '12600' # 3.5 hours)
 #export ZOPEN_CLEAN_OPTS="" ## Options to pass to clean up  program (defaults to 'clean')
 #export ZOPEN_CONFIGURE_MINIMAL="" ## Configuration program will not be passed CFLAGS, LDFLAGS, CPPFLAGS options but will get them from env vars.
-#export ZOPEN_CONFIGURE_OPTS="-B ../build --install-prefix \$ZOPEN_INSTALL_DIR/ -DCMAKE_INSTALL_PREFIX=\$ZOPEN_INSTALL_DIR/" ## Options to pass to configuration program (defaults to '--prefix=')
-#export ZOPEN_EXTRA_CONFIGURE_OPTS="" ## Extra configure options to pass to configuration program. (defaults to '')
+#export ZOPEN_CONFIGURE_OPTS="" ## Options to pass to configuration program (defaults to '--prefix=')
+export ZOPEN_EXTRA_CONFIGURE_OPTS="--enable-build-docs=no" ## Extra configure options to pass to configuration program. (defaults to '')
 #export ZOPEN_INSTALL_OPTS="-C ../build install" ## Options to pass to installation program (defaults to 'install')
 #export ZOPEN_MAKE_MINIMAL="" ## Build program will not be passed CFLAGS, LDFLAGS, CPPFLAGS options but will get them from env vars.
 #export ZOPEN_MAKE_OPTS="-C ../build" ## Options to pass to build program (defaults to '-j')
